@@ -1,5 +1,123 @@
 #!/usr/bin/python
 
 import os
+import re
+import sys
+from inspect import getmembers
+from pprint import pprint
+from collections import OrderedDict
 
-print(os.popen("ls -la").readlines());
+class History:
+    tag = 'last'
+    tags = OrderedDict()
+    commits = OrderedDict()
+    history = OrderedDict()
+
+    def __init__(self):
+        self.loadTags()
+        self.loadCommits()
+        self.dump()
+
+    def dump(self):
+        pprint(self.history)
+        sys.exit()
+
+    def loadTags(self):
+        for line in os.popen("git log --date=short --tags --simplify-by-decoration --pretty='format:%cd %d'").readlines():
+            m = re.match(r'^([0-9-]+)\s*(\(.*\))?$', line)
+            n = self.matchTag(m.group(2))
+            self.tags[n if n else ''] = m.group(1)
+
+    def matchTag(self, str):
+        if not str:
+            return False
+        m = re.match(r'^\((.*?)\)$', str)
+        refs = m.group(1).split(', ')
+        for ref in refs:
+            m = re.match(r'^tag: (.*)$', ref)
+            if m:
+                return m.group(1)
+        return False
+
+    def loadCommits(self):
+        for line in os.popen("git log --date=short --pretty='format:%h %ad %ae %s |%d'").readlines():
+            m = re.match(r'^(\w+) ([0-9-]+) (\S+) (.*?)\s+\| ?(\([^\(\)]+\))?$', line)
+            self.addHistory({
+                'hash':     m.group(1),
+                'date':     m.group(2),
+                'email':    m.group(3),
+                'comment':  m.group(4),
+                'tag':      m.group(5),
+            })
+
+    def addHistory(self, commit):
+        tag = self.matchTag(commit['tag'])
+        if tag:
+            self.tag = tag
+        hash = commit['hash']
+        self.commits[hash] = commit
+        if not self.tag in self.history:
+            self.history[self.tag] = OrderedDict()
+        self.history[self.tag][hash] = commit
+
+class Commits:
+    tag    = ''
+    note   = ''
+    hash   = ''
+    hashes = OrderedDict()
+    story  = OrderedDict()
+
+    def __init__(self, path):
+        self.loadHistory(path)
+
+    def setTag(self, tag):
+        self.tag  = tag
+        self.note = ''
+        self.hash = ''
+
+    def setNote(self, note):
+        self.note = note
+        self.hash = ''
+
+    def setHash(self, hash):
+        self.hash = hash
+
+    def addTag(self, tag, label = None):
+        self.tag = tag
+#       ref       = &self.story[tag]['tag']
+#       ref       = label ?: ref ?: tag
+        if not tag in self.story:
+            self.story[tag] = OrderedDict()
+        val = self.story[tag].get('tag')
+        if label:
+            val = label
+        if not val:
+            val = tag
+        self.story[tag]['tag'] = val
+
+    def addNote(self, note, label = None):
+        self.note = note
+#       ref        = &self.story[self.tag][note]['note']
+#       ref        = label ?: ref ?: note
+        if not note in self.story[self.tag]:
+            self.story[self.tag] = OrderedDict()
+        val = self.story[self.tag][note].get('note')
+        if label:
+            val = label
+        if not val:
+            val = note
+        self.story[self.tag][note]['note'] = val
+
+    def addHash(self, hash, label):
+        self.hash = hash
+        self.hashes[hash] = label
+
+    def loadHistory(self, path):
+        self.addTag('last')
+        with open(path) as f:
+            for line in f:
+                print(line)
+
+#history = History()
+commits = Commits('.hidev/commits.md')
+
