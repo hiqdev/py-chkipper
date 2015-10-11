@@ -7,7 +7,14 @@ from inspect import getmembers
 from pprint import pprint
 from collections import OrderedDict
 
-class History:
+INIT_TAG = 'Development started'
+LAST_TAG = 'Under development'
+
+def d(a):
+    pprint(a)
+    sys.exit()
+
+class VCS:
     tag = 'last'
     tags = OrderedDict()
     commits = OrderedDict()
@@ -19,8 +26,7 @@ class History:
         self.dump()
 
     def dump(self):
-        pprint(self.history)
-        sys.exit()
+        d(self.history)
 
     def loadTags(self):
         for line in os.popen("git log --date=short --tags --simplify-by-decoration --pretty='format:%cd %d'").readlines():
@@ -114,10 +120,36 @@ class Commits:
 
     def loadHistory(self, path):
         self.addTag('last')
+        no = 0
         with open(path) as f:
             for line in f:
-                print(line)
+                line = line.rstrip()
+                no += 1
+                if not line or no < 3:
+                    continue
+                # SECTION
+                if re.match(r'^# ', line):
+                    # TODO add later
+                    continue
+                # TAG
+                m = re.match(r'^## (.*)$', line)
+                if m:
+                    label = m.group(1)
+                    m = re.match(r'^(\S+)\s*(.*)$', label)
+                    if not m:
+                        d(label)
+                    self.addTag(m.group(1), label)
+                    continue
+                # NOTE
+                m = re.match(r'^- (.*)$', line)
+                if m:
+                    self.addNote(m.group(1))
+                    continue
+                # COMMIT
+                m = re.match(r'^\s+- ([0-9a-fA-F]{7})', line)
+                if m:
+                    self.addHash(m.group(1), line)
 
-#history = History()
+#history = VCS()
 commits = Commits('.hidev/commits.md')
 
