@@ -10,6 +10,7 @@ Helps to track all the commits to your project and convert them to CHANGELOG fil
 
 No installation required.
 It's just a single python file.
+
 Just download and run.
 
 ## License
